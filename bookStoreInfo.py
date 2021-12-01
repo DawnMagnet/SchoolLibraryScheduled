@@ -228,3 +228,6 @@ def desensitize(data):
 
 def dprint(data):
     print(desensitize(data.copy()))
+
+def dprint_json(data):
+    return desensitize(data.copy()).to_json(orient = 'split', force_ascii = False)
