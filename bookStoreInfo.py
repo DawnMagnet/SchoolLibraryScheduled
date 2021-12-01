@@ -1,0 +1,230 @@
+import datetime
+import toml
+
+import pandas as pd
+import requests
+
+from getCookies import get_new_cookies
+import sys
+
+sys.path.append(".")
+
+
+class BookStoreInfo:
+    def __init__(self, config_path, debug=False):
+
+        self.config_path = config_path
+        self.CONFIG = toml.load(config_path)
+        self.debug = debug
+        self.refresh_available_info()
+
+    def makeOneAppointment(self, roomId, start_time, remain_hours):
+        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        begin_time = str(start_time * 60)
+        end_time = str((start_time + remain_hours) * 60)
+        ruleId = self.CONFIG['RULE_ID']
+        cookies = {
+            'JSESSIONID': self.CONFIG["JSESSIONID"],
+        }
+        referer = f'http://libwx.cau.edu.cn/space/discuss/openAppointDetail?\
+                  roomid={roomId}&ustime={begin_time}&uetime={end_time}\
+                  &selectDate={today}&ruleId={ruleId}&\
+                  mobile=true&linkSign=discuss'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E304 Safari/602.1 Edg/95.0.4638.54',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': self.CONFIG['X_CSRF_TOKEN'],
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': 'http://libwx.cau.edu.cn',
+            'Connection': 'keep-alive',
+            'Referer': referer,
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache',
+        }
+
+        data = str({
+            "_stime": begin_time,
+            "_etime": end_time,
+            "_roomid": roomId,
+            "_currentday": today,
+            "UUID": "VEmkgCYM",
+            "ruleId": ruleId,
+            "users": "2019307070109 2016307070109",
+            "usercount": "2",
+            "room_exp": "[]",
+            "_seatno": "0",
+            "LOCK": "true"
+        }).replace("'", '"')
+        return requests.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
+                             headers=headers, cookies=cookies, data=data)
+
+    def makeOneSeatEveryAppointment(self, roomId=None, force=False):
+        if roomId is None:
+            roomId = self.CONFIG['PREFER']
+        if force:
+            available_period = [[20, 21], [17, 18, 19],
+                                [14, 15, 16], [11, 12, 13], [8, 9, 10]]
+        else:
+            available_period = []
+            for hour in range(8, 22):
+                if self.full_data.loc[roomId][str(hour)] == 'O':
+                    if len(available_period) > 0 and len(available_period[-1]) < 3 and available_period[-1][-1] == hour - 1:
+                        available_period[-1].append(hour)
+                    else:
+                        available_period.append([hour])
+        res_dict = {}
+        for available_time_period in available_period:
+            # print(available_time_period)
+            res = self.makeOneAppointment(
+                roomId, available_time_period[0], len(available_time_period))
+            # print(res.content)
+            res_dict[str(available_time_period)] = res.json()
+        return res_dict
+
+    def cancelAppointment(self, appoint_id):
+
+        cookies = {
+            'JSESSIONID': self.CONFIG["JSESSIONID"],
+        }
+
+        headers = {
+            'Proxy-Connection': 'keep-alive',
+            'Accept': '*/*',
+            'DNT': '1',
+            'X-CSRF-TOKEN': self.CONFIG['X_CSRF_TOKEN'],
+            'X-Requested-With': 'XMLHttpRequest',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin': 'http://libwx.cau.edu.cn',
+            'Referer': 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+        }
+
+        data = {
+            'id': appoint_id
+        }
+
+        response = requests.post('http://libwx.cau.edu.cn/space/discuss/cancleAppiont',
+                                 headers=headers, cookies=cookies, data=data, verify=False)
+        return response
+
+    def getAppointmentRecords(self,):
+        cookies = {
+            'JSESSIONID': self.CONFIG['JSESSIONID'],
+        }
+
+        headers = {
+            'Proxy-Connection': 'keep-alive',
+            'Accept': '*/*',
+            'DNT': '1',
+            'X-Requested-With': 'XMLHttpRequest',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
+            'Referer': 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+        }
+
+        params = (
+            ('cday', '1970-01-01_to_2050-01-01'),
+            ('sign', ''),
+            ('rtypeid', ''),
+            ('type', 'discuss'),
+        )
+
+        response = requests.get('http://libwx.cau.edu.cn/space/discuss/queryAppiont',
+                                headers=headers, params=params, cookies=cookies, verify=False)
+        res = pd.DataFrame(response.json()["params"]["myappionts"]["pageList"])
+        del res['uid']
+        del res['pay']
+        del res['title']
+        return res
+
+    def request_with_cookies(self, sec, day=""):
+        req_address = 'http://libwx.cau.edu.cn/space/discuss/findRoom'
+        sec_list = ['', '0a4c97c5b7844420abdc7128715b8885',
+                    '', '', '31df48baed5148a5ae4eb219cdd1e415']
+        Section = sec_list[int(sec)]
+
+        unknown = '57879bf578f24a43bae98434682bf176'
+        if day == "":
+            day = datetime.datetime.now().strftime('%Y-%m-%d')
+        url = f"{req_address}/{Section}/{unknown}/{day}"
+        try:
+            res = requests.post(
+                url=url,
+                headers={
+                    "X-CSRF-TOKEN": self.CONFIG['X_CSRF_TOKEN'],
+                    "Cookie": f"JSESSIONID={self.CONFIG['JSESSIONID']}"
+                },
+                data={
+                    "currentPage": 1,
+                    "pageSize": 100
+                }
+            ).json()
+            df = pd.DataFrame(res["params"]["rooms"]["pageList"])
+            ruleId = res["params"]["ruleId"]
+            return True, df, ruleId
+        except Exception as _:
+            return False, None, None
+
+    def write_toml(self):
+        with open(self.config_path, "w") as f:
+            toml.dump(self.CONFIG, f)
+
+    def get_origin_info(self, sec='4'):
+        checker, df, ruleId = self.request_with_cookies(sec)
+
+        if not checker:
+            # print("[INFO] Get New Cookies!")
+            jsessionid, x_csrf_token = get_new_cookies(self.CONFIG["OPEN_ID"])
+            self.CONFIG["JSESSIONID"], self.CONFIG["X_CSRF_TOKEN"] = jsessionid, x_csrf_token
+            self.write_toml()
+            checker, df, ruleId = self.request_with_cookies(sec)
+        self.CONFIG['RULE_ID'] = ruleId
+        self.write_toml()
+        df["times"] = df["times"].map(lambda x: "".join(
+            [str('X' if line["select"] else 'O') for line in x]))
+        df_n = df[["id", "rname", "times"]]
+        return df_n
+
+    def refresh_available_info(self):
+        self.df1 = self.get_origin_info('1')
+        self.df4 = self.get_origin_info('4')
+        self.df = pd.DataFrame(pd.concat([self.df1, self.df4], axis=0))
+        self.full_data = self.deal_available_info(self.df.copy())
+        self.full_data.to_csv("full_data.csv")
+        self.avai_data = self.deal_available_info(
+            self.df.copy(), available_filter=True)
+
+    def deal_available_info(self, df, available_filter=False):
+        if available_filter:
+            hour_now = datetime.datetime.now().hour
+            if datetime.datetime.now().minute > 30:
+                hour_now += 1
+            # print(f'{hour_now = }')
+            unavailable_suffix = 'X' * max(22 - hour_now, 0)
+            res = []
+            for index, data in df.iterrows():
+                if data['times'].endswith(unavailable_suffix):
+                    continue
+                res.append(data)
+            df = pd.DataFrame(res, columns=df.columns)
+        # print(df, "cur")
+        df['avai'] = df['times'].map(lambda x: x.count('O'))
+        df.index = df['id']
+        del df['id']
+        for i in range(14):
+            df[f"{8 + i}"] = df['times'].map(lambda x: x[i])
+        df = df.sort_values(by='avai', ascending=False)
+        return df
+
+
+def desensitize(data):
+    data['rname'] = data['rname'].map(lambda x: x.replace(
+        '层', '-').replace('区交流空间', '-').replace('排', '-').replace('组', ''))
+    return data
+
+
+def dprint(data):
+    print(desensitize(data.copy()))
