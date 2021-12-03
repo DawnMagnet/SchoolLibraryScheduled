@@ -1,11 +1,16 @@
-from bookStoreInfo import BookStoreInfo, dprint
-from datetime import datetime
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
+from bookStoreInfo import BookStoreInfo, dprint
 
 scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
 
 bi = BookStoreInfo("config.toml")
+
+
+def now_time_pd():
+    from pandas import to_datetime
+    from datetime import datetime
+    return to_datetime(datetime.now())
 
 
 def cur_time_str():
@@ -13,55 +18,50 @@ def cur_time_str():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
-def print_appointment():
+def get_ruled_appointment():
     import pandas as pd
     ap = bi.getAppointmentRecords()
-    ap = ap[ap['sign'] == False]
+    ap = ap[ap['sign'] is False]
     ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
     ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus', 'bstatus']]
     ap.sort_values(by='begintime', inplace=True, ascending=False)
-    now_pd = pd.to_datetime(datetime.now())
-    ap = ap[ap['begintime'] > now_pd - pd.Timedelta(minutes=20)]
-    dprint(ap)
+    now_pd = now_time_pd()
+    ap = ap[ap['begintime'] > now_pd]
+    return ap
+
+
+def try_make_auto_reappoint_job():
+    sched_appoint_job = scheduler.get_job('auto_reappoint')
+    if sched_appoint_job:
+        print("Auto ReAppoint Job already exists")
+    else:
+        scheduler.add_job(auto_reappoint, 'interval',
+                          seconds=5, id='auto_reappoint')
 
 
 def auto_reappoint():
-    # # Version 2
-    # import pandas as pd
-    # ap = bi.getAppointmentRecords()
-    # ap = ap[ap['sign'] == False]
-    # ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
-    # ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus', 'bstatus']]
-    # ap.sort_values(by='begintime', inplace=True, ascending=False)
-    # now_pd = pd.to_datetime(datetime.now())
-    # ap = ap[ap['begintime'] > now_pd - pd.Timedelta(minutes=20)]
-    # dprint(ap)
-    # cur_ap = ap.iloc[-1, :]
-    # if cur_ap['begintime'] < now_pd:
-    #     delta = now_pd - cur_ap['begintime']
-    #     if delta.total_seconds() > 8 * 60:
-    #         print('Auto ReAppoint Begin!')
-    #         print(bi.cancelAppointment(cur_ap['id']).json())
-    #         print('CanCel Success!')
-    #         res = bi.makeOneSeatEveryAppointment()
-    #         if len(res) > 0:
-    #             print("Warning! Perhaps Unsigned.\n[LOCKED RESULT]")
-    #             for time_period in res.keys():
-    #                 print("[{}]{} {} {}".format(cur_time_str(), time_period,
-    #                                             res[time_period]['status'], res[time_period]['content']))
-    #         print('ReAppoint Success!')
+    # Version 2
 
-    # Version 1
-    try:
-        res = bi.makeOneSeatEveryAppointment()
-    except Exception as e:
-        print('Somewhere Error')
-    else:
-        if len(res) > 0:
-            print("Warning! Perhaps Unsigned.\n[LOCKED RESULT]")
-            for time_period in res.keys():
-                print("[{}]{} {} {}".format(cur_time_str(), time_period,
-                                            res[time_period]['status'], res[time_period]['content']))
+    now_pd = now_time_pd()
+    ap = get_ruled_appointment()
+    dprint(ap)
+    cur_ap = ap.iloc[-1, :]
+    if cur_ap['begintime'] > now_pd:
+        delta = cur_ap['begintime'] - now_pd
+        print(delta.total_seconds())
+        if delta.total_seconds() < 5:
+            from time import sleep
+            print('Auto ReAppoint Begin!')
+            print(bi.cancelAppointment(cur_ap['id']).json())
+            print('CanCel Success!')
+            sleep(delta.total_seconds() + 0.5)
+            res = bi.makeOneSeatEveryAppointment()
+            if len(res) > 0:
+                print("Warning! Perhaps Unsigned.\n[LOCKED RESULT]")
+                for time_period in res.keys():
+                    print("[{}]{} {} {}".format(cur_time_str(), time_period, res[time_period]['status'],
+                                                res[time_period]['content']))
+            print('ReAppoint Success!')
 
 
 @scheduler.scheduled_job('interval', seconds=5, id="refresh", max_instances=100)
@@ -75,21 +75,16 @@ def scheduled_appointment():
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
-    sc = scheduler.get_job('auto_reappoint')
-    if sc:
-        print("Auto ReAppoint Job already exists")
-    else:
-        scheduler.add_job(auto_reappoint, 'interval',
-                          seconds=5, id='auto_reappoint')
+    try_make_auto_reappoint_job()
 
 
 scheduler.start()
 
 if __name__ == "__main__":
-    print('WelCome to SchoolLibrary REPL v0.2!\nPrint "help" for more information\n> ', end='')
+    print('WelCome to SchoolLibrary REPL v0.3!\nPrint "help" for more information\n> ', end='')
     while True:
         command = input().strip().split()
-        if command == []:
+        if not command:
             pass
         elif command[0] == "help":
             print("""
@@ -117,7 +112,7 @@ unlk: unlock chosen seat
         elif command[0] == "ls":
             dprint(bi.avai_data)
         elif command[0] == "ap":
-            print_appointment()
+            dprint(get_ruled_appointment())
         elif command[0] == "jb":
             print(scheduler.get_jobs())
         elif command[0] == "s":
@@ -125,6 +120,8 @@ unlk: unlock chosen seat
             if sc:
                 print("Job already exists")
             else:
+                from datetime import datetime
+
                 app_time = datetime.now()
                 app_time = app_time.replace(
                     day=app_time.day + 1, hour=0, minute=0, second=2, microsecond=0)
@@ -133,12 +130,7 @@ unlk: unlock chosen seat
                 scheduler.add_job(scheduled_appointment, 'date',
                                   run_date=app_time, id='nxt_day_app')
         elif command[0] == "lock":
-            sc = scheduler.get_job('auto_reappoint')
-            if sc:
-                print("Auto ReAppoint Job already exists")
-            else:
-                scheduler.add_job(auto_reappoint, 'interval',
-                                  seconds=5, id='auto_reappoint')
+            try_make_auto_reappoint_job()
         elif command[0] == "unlk":
             scheduler.remove_job("auto_reappoint")
         elif command[0] == "sn":
