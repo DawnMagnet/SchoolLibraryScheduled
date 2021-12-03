@@ -31,10 +31,18 @@ def get_ruled_appointment():
 
 
 def try_make_auto_reappoint_job():
+    from time import sleep
     sched_appoint_job = scheduler.get_job('auto_reappoint')
     if sched_appoint_job:
         print("Auto ReAppoint Job already exists")
     else:
+        now_pd = now_time_pd()
+        now_delay = float(now_pd.strftime('%S.%f')) % 5
+        if now_delay < 2.5:
+            sleep(2.5 - now_delay)
+        else:
+            sleep(7.5 - now_delay)
+        now_pd.replace(second=0, microsecond=0)
         scheduler.add_job(auto_reappoint, 'interval',
                           seconds=5, id='auto_reappoint')
 
