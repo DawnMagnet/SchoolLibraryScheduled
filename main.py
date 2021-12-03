@@ -21,7 +21,7 @@ def cur_time_str():
 def get_ruled_appointment():
     import pandas as pd
     ap = bi.getAppointmentRecords()
-    ap = ap[ap['sign'] is False]
+    ap = ap[ap['sign'] == False]
     ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
     ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus', 'bstatus']]
     ap.sort_values(by='begintime', inplace=True, ascending=False)
