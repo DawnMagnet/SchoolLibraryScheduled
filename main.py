@@ -53,6 +53,7 @@ def auto_reappoint():
     now_pd = now_time_pd()
     ap = get_ruled_appointment()
     dprint(ap)
+    print(now_pd, end=' ')
     cur_ap = ap.iloc[-1, :]
     if cur_ap['begintime'] > now_pd:
         delta = cur_ap['begintime'] - now_pd
@@ -140,7 +141,10 @@ unlk: unlock chosen seat
         elif command[0] == "lock":
             try_make_auto_reappoint_job()
         elif command[0] == "unlk":
-            scheduler.remove_job("auto_reappoint")
+            try:
+                scheduler.remove_job("auto_reappoint")
+            except Exception as e:
+                print("Already Removed")
         elif command[0] == "sn":
             scheduled_appointment()
         elif command[0] == "cs":
