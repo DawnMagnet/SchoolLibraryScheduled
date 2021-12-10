@@ -53,7 +53,7 @@ class BookStoreInfo:
             "_currentday": today,
             "UUID": "VEmkgCYM",
             "ruleId": ruleId,
-            "users": "2019307070109 2016307070109",
+            "users": "2019307070109 2019321010102",
             "usercount": "2",
             "room_exp": "[]",
             "_seatno": "0",
@@ -234,9 +234,10 @@ class BookStoreInfo:
         df = df.sort_values(by='avai', ascending=False)
         return df
 
-    def sign(self, roomId=None):
+    def sign(self, roomId=None, sign_config='SIGN_PARAM'):
         if roomId is None:
-            roomId = self.CONFIG['PREFER']
+            roomName = self.ruled_appointment['rname'].values[-1]
+            roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
         headers = {
             'Proxy-Connection': 'keep-alive',
             'DNT': '1',
@@ -246,7 +247,7 @@ class BookStoreInfo:
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
 
-        params = self.CONFIG['SIGN_PARAM']
+        params = self.CONFIG[sign_config]
         params['roomId'] = roomId
 
         response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params, verify=False)

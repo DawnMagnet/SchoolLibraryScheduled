@@ -24,13 +24,14 @@ def make_new_line():
 def refresh():
     bi.__init__("config.toml")
     # dprint(bi.ruled_appointment)
-    print(cur_time_str(), bi.sign())
+    print(cur_time_str(), "user A", bi.sign('SIGN_PARAM'))
+    print(cur_time_str(), "user B", bi.sign('SIGN_PARAM_2'))
     make_new_line()
     
 
 
 def scheduled_appointment():
-    res = bi.makeOneSeatEveryAppointment(roomId='08b169686be84002a2e124d4d4e8aaac', force=True)
+    res = bi.makeOneSeatEveryAppointment(force=True)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
@@ -40,7 +41,7 @@ def scheduled_appointment():
 scheduler.start()
 
 if __name__ == "__main__":
-    print('WelCome to SchoolLibrary REPL v0.3!\nPrint "help" for more information\n> ', end='')
+    print('WelCome to SCL REPL v0.4!\nPrint "help" for more information\n> ', end='')
     while True:
         try:
             command = input().strip().split()
@@ -57,6 +58,7 @@ if __name__ == "__main__":
     jb  : print background jobs(debug)
     r   : force refresh info(debug)
     cs  : cancel sched
+    sg  : sign(force)
     st  : set current seat
     sn  : sched now(force)
     s   : sched next_day
@@ -73,6 +75,11 @@ if __name__ == "__main__":
                 dprint(bi.ruled_appointment)
             elif command[0] == "jb":
                 print(scheduler.get_jobs())
+            elif command[0] == "sg":
+                if len(command) > 1:
+                    print(bi.sign(command[1]))
+                else:
+                    print(bi.sign())
             elif command[0] == "s":
                 from datetime import datetime
                 app_time = datetime.now()
