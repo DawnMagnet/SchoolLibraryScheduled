@@ -57,5 +57,4 @@ def get_new_cookies_new(open_id):
     X_CSRF_TOKEN = re.search(
         r'name="_csrf" content="(?P<CUR>.*)"', response.text).groupdict()['CUR']
     # print(X_CSRF_TOKEN)
-    print()
     return [JSESSIONID, X_CSRF_TOKEN]

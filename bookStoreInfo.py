@@ -3,6 +3,7 @@ import toml
 
 import pandas as pd
 import requests
+import re
 
 from getCookies import get_new_cookies
 import sys
@@ -17,6 +18,7 @@ class BookStoreInfo:
         self.CONFIG = toml.load(config_path)
         self.debug = debug
         self.refresh_available_info()
+        self.getRuledAppointment()
 
     def makeOneAppointment(self, roomId, start_time, remain_hours):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -51,7 +53,7 @@ class BookStoreInfo:
             "_currentday": today,
             "UUID": "VEmkgCYM",
             "ruleId": ruleId,
-            "users": "2019307070109 2016307070109",
+            "users": "2019307070109 2019321010102",
             "usercount": "2",
             "room_exp": "[]",
             "_seatno": "0",
@@ -80,7 +82,10 @@ class BookStoreInfo:
             res = self.makeOneAppointment(
                 roomId, available_time_period[0], len(available_time_period))
             # print(res.content)
-            res_dict[str(available_time_period)] = res.json()
+            try:
+                res_dict[str(available_time_period)] = res.json()
+            except Exception as e:
+                res_dict[str(available_time_period)] = 'json parse error'
         return res_dict
 
     def cancelAppointment(self, appoint_id):
@@ -139,7 +144,17 @@ class BookStoreInfo:
         del res['pay']
         del res['title']
         return res
-
+    def getRuledAppointment(self):
+        import pandas as pd
+        ap = self.getAppointmentRecords()
+        ap = ap[ap['sign'] == False]
+        ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
+        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus', 'bstatus']]
+        ap.sort_values(by='begintime', inplace=True, ascending=False)
+        now_pd = pd.to_datetime(datetime.datetime.now())
+        ap = ap[ap['begintime'] > now_pd]
+        self.ruled_appointment = ap
+        return ap
     def request_with_cookies(self, sec, day=""):
         req_address = 'http://libwx.cau.edu.cn/space/discuss/findRoom'
         sec_list = ['', '0a4c97c5b7844420abdc7128715b8885',
@@ -219,10 +234,32 @@ class BookStoreInfo:
         df = df.sort_values(by='avai', ascending=False)
         return df
 
+    def sign(self, roomId=None, sign_config='SIGN_PARAM'):
+        if roomId is None:
+            roomName = self.ruled_appointment['rname'].values[-1]
+            roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
+        headers = {
+            'Proxy-Connection': 'keep-alive',
+            'DNT': '1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+        }
+
+        params = self.CONFIG[sign_config]
+        params['roomId'] = roomId
+
+        response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params, verify=False)
+        res = re.search("<span>(.*)</span>", response.text).group(1)
+        if res == (b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0').decode('utf-8'):
+            res = "Already!"
+        return res
+
 
 def desensitize(data):
     data['rname'] = data['rname'].map(lambda x: x.replace(
-        '层', '-').replace('区交流空间', '-').replace('排', '-').replace('组', ''))
+        '层', '-').replace( b'\xe5\x8c\xba\xe4\xba\xa4\xe6\xb5\x81\xe7\xa9\xba\xe9\x97\xb4'.decode('utf-8'), '-').replace('排', '-').replace('组', ''))
     return data
 
 
