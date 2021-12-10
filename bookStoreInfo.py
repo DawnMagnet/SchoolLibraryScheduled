@@ -1,12 +1,12 @@
 import datetime
 import toml
-
 import pandas as pd
 import requests
 import re
+import sys
 
 from getCookies import get_new_cookies
-import sys
+
 
 sys.path.append(".")
 

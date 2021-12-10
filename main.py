@@ -1,6 +1,7 @@
 import os
-from apscheduler.schedulers.background import BackgroundScheduler
 from bookStoreInfo import BookStoreInfo, dprint
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
 
