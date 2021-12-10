@@ -25,8 +25,8 @@ def make_new_line():
 def refresh():
     bi.__init__("config.toml")
     # dprint(bi.ruled_appointment)
-    print(cur_time_str(), "user A", bi.sign('SIGN_PARAM'))
-    print(cur_time_str(), "user B", bi.sign('SIGN_PARAM_2'))
+    print(cur_time_str(), "user A", bi.sign(sign_config='SIGN_PARAM'))
+    print(cur_time_str(), "user B", bi.sign(sign_config='SIGN_PARAM_2'))
     make_new_line()
     
 
