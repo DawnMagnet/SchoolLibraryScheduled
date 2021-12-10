@@ -236,8 +236,11 @@ class BookStoreInfo:
 
     def sign(self, roomId=None, sign_config='SIGN_PARAM'):
         if roomId is None:
-            roomName = self.ruled_appointment['rname'].values[-1]
-            roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
+            try:
+                roomName = self.ruled_appointment['rname'].values[-1]
+                roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
+            except IndexError as e:
+                return "No Appointment"
         headers = {
             'Proxy-Connection': 'keep-alive',
             'DNT': '1',

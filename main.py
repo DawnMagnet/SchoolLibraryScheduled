@@ -19,9 +19,9 @@ def cur_time_str():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 def make_new_line():
-    print("> ", end='')
+    print("\b\b\b\b\b\b\b\b\b\b> ", end='')
 
-@scheduler.scheduled_job('interval', seconds=60, id="refresh", max_instances=100)
+@scheduler.scheduled_job('interval', seconds=60*20, id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
     # dprint(bi.ruled_appointment)
@@ -90,6 +90,8 @@ if __name__ == "__main__":
                 print("Job Will Start At {}.".format(app_time))
                 scheduler.add_job(scheduled_appointment, 'date',
                                     run_date=app_time, id='nxt_day_app')
+            elif command[0] == "r":
+                refresh()
             elif command[0] == "sn":
                 scheduled_appointment()
             elif command[0] == "cs":
