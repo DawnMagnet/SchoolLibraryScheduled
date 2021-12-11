@@ -149,7 +149,7 @@ class BookStoreInfo:
         ap = self.getAppointmentRecords()
         ap = ap[ap['sign'] == False]
         ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
-        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus', 'bstatus']]
+        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus']]
         ap.sort_values(by='begintime', inplace=True, ascending=False)
         now_pd = pd.to_datetime(datetime.datetime.now())
         ap = ap[ap['begintime'] > now_pd]
