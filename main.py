@@ -1,14 +1,12 @@
 import os
-from bookStoreInfo import BookStoreInfo, dprint
+
 from apscheduler.schedulers.background import BackgroundScheduler
+
+from bookStoreInfo import BookStoreInfo
+from bookStoreInfo import dprint
 
 scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
 bi = BookStoreInfo("config.toml")
-
-def now_time_pd():
-    from pandas import to_datetime
-    from datetime import datetime
-    return to_datetime(datetime.now())
 
 def cur_time_str():
     import time
@@ -17,14 +15,12 @@ def cur_time_str():
 def make_new_line():
     print("> ", end='')
 
-@scheduler.scheduled_job('interval', seconds=60*20, id="refresh", max_instances=100)
+@scheduler.scheduled_job('cron', minute='0, 30', id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
     for user in ['SIGN_PARAM', 'SIGN_PARAM_2']:
         if res := bi.sign(sign_config=user):
             print(cur_time_str(), user, res)
-    
-
 
 def scheduled_appointment():
     res = bi.makeOneSeatEveryAppointment(force=True)
@@ -32,7 +28,6 @@ def scheduled_appointment():
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
-
 
 scheduler.start()
 
@@ -57,7 +52,7 @@ if __name__ == "__main__":
     sg  : sign(force)
     st  : set current seat
     sn  : sched now(force)
-    s   : sched next_day
+    s   : sched next_day(always)
                 """.format(cur_time_str()))
             elif command[0] == "exit":
                 scheduler.shutdown(wait=False)
@@ -70,19 +65,14 @@ if __name__ == "__main__":
             elif command[0] == "ap":
                 dprint(bi.ruled_appointment)
             elif command[0] == "jb":
-                print(scheduler.get_jobs())
+                scheduler.print_jobs()
             elif command[0] == "sg":
                 if len(command) > 1:
                     print(bi.sign(command[1]))
                 else:
                     print(bi.sign())
             elif command[0] == "s":
-                from datetime import datetime
-                app_time = datetime.now()
-                app_time = app_time.replace(
-                    day=app_time.day + 1, hour=0, minute=0, second=2, microsecond=0)
-                print("Job Will Start At {}.".format(app_time))
-                scheduler.add_job(scheduled_appointment, 'date', run_date=app_time, id='nxt_day_app')
+                scheduler.add_job(scheduled_appointment, 'cron', hour='0', minute='0', second='2', id='nxt_day_app')
             elif command[0] == "r":
                 refresh()
             elif command[0] == "sn":
@@ -91,6 +81,18 @@ if __name__ == "__main__":
                 scheduler.remove_job("nxt_day_app")
             elif command[0] == "clear":
                 os.system('clear')
+            elif command[0] == 'dbg':
+                print("Debug Mode(\q to quit)\n###>>> ", end='')
+                while dbg_command := input():
+                    if dbg_command == "\q":
+                        break
+                    try:
+                        print(eval(dbg_command))
+                    except Exception as e:
+                        print(e)
+                        pass
+                    print("###>>> ", end='')
+                print("Exit Debug Mode!")
             else:
                 print('Unknown command\nPrint "help" for more information')
             make_new_line()
