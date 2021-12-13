@@ -15,7 +15,7 @@ def cur_time_str():
 def make_new_line():
     print("> ", end='')
 
-@scheduler.scheduled_job('cron', minute='0, 30', id="refresh", max_instances=100)
+@scheduler.scheduled_job('cron', minute='5, 30', id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
     for user in ['SIGN_PARAM', 'SIGN_PARAM_2']:
