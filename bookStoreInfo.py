@@ -251,7 +251,8 @@ class BookStoreInfo:
 
                 roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
             except IndexError as e:
-                return "No Appointment"
+                print("No Appointment")
+                return False
         headers = {
             'Proxy-Connection': 'keep-alive',
             'DNT': '1',
