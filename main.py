@@ -2,32 +2,27 @@ import os
 from bookStoreInfo import BookStoreInfo, dprint
 from apscheduler.schedulers.background import BackgroundScheduler
 
-
 scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
-
 bi = BookStoreInfo("config.toml")
-
 
 def now_time_pd():
     from pandas import to_datetime
     from datetime import datetime
     return to_datetime(datetime.now())
 
-
 def cur_time_str():
     import time
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 def make_new_line():
-    print("\b\b\b\b\b\b\b\b\b\b> ", end='')
+    print("> ", end='')
 
 @scheduler.scheduled_job('interval', seconds=60*20, id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
-    # dprint(bi.ruled_appointment)
-    print(cur_time_str(), "user A", bi.sign(sign_config='SIGN_PARAM'))
-    print(cur_time_str(), "user B", bi.sign(sign_config='SIGN_PARAM_2'))
-    make_new_line()
+    for user in ['SIGN_PARAM', 'SIGN_PARAM_2']:
+        if res := bi.sign(sign_config=user):
+            print(cur_time_str(), user, res)
     
 
 
@@ -86,10 +81,8 @@ if __name__ == "__main__":
                 app_time = datetime.now()
                 app_time = app_time.replace(
                     day=app_time.day + 1, hour=0, minute=0, second=2, microsecond=0)
-                # app_time = app_time.replace(second=app_time.second + 1)
                 print("Job Will Start At {}.".format(app_time))
-                scheduler.add_job(scheduled_appointment, 'date',
-                                    run_date=app_time, id='nxt_day_app')
+                scheduler.add_job(scheduled_appointment, 'date', run_date=app_time, id='nxt_day_app')
             elif command[0] == "r":
                 refresh()
             elif command[0] == "sn":

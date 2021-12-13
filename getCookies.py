@@ -1,11 +1,8 @@
 import requests
 import re
 
-
-
 def get_new_cookies(open_id):
     return get_new_cookies_new(open_id)
-
 
 def get_new_cookies_new(open_id):
     common_headers = {

@@ -208,7 +208,7 @@ class BookStoreInfo:
         self.df4 = self.get_origin_info('4')
         self.df = pd.DataFrame(pd.concat([self.df1, self.df4], axis=0))
         self.full_data = self.deal_available_info(self.df.copy())
-        self.full_data.to_csv("full_data.csv")
+        # self.full_data.to_csv("full_data.csv")
         self.avai_data = self.deal_available_info(
             self.df.copy(), available_filter=True)
 
@@ -238,6 +238,17 @@ class BookStoreInfo:
         if roomId is None:
             try:
                 roomName = self.ruled_appointment['rname'].values[-1]
+                nextTime = self.ruled_appointment['begintime'].tolist()[-1]
+                # print(type(nextTime))
+                # print(nextTime)
+                now = datetime.datetime.now()
+                delta = datetime.timedelta(hours=1)
+                if now < nextTime < (now + delta):
+                    print("[Hit The Target]")
+                else:
+                    print(f"Still Remains {nextTime - now}")
+                    return False
+
                 roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
             except IndexError as e:
                 return "No Appointment"
