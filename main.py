@@ -15,20 +15,22 @@ def cur_time_str():
 def make_new_line():
     print("> ", end='')
 
-@scheduler.scheduled_job('cron', minute='5, 30', id="refresh", max_instances=100)
+@scheduler.scheduled_job('cron', minute='5, 30', hour='8-22', id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
     for user in ['SIGN_PARAM', 'SIGN_PARAM_2']:
         if res := bi.sign(sign_config=user):
             print(cur_time_str(), user, res)
-
-def scheduled_appointment():
-    res = bi.makeOneSeatEveryAppointment(force=True)
+@scheduler.scheduled_job('cron', hour='0', minute='0', second='2', id='nxt_day_app')
+def scheduled_appointment(roomId=None):
+    res = bi.makeOneSeatEveryAppointment(force=True, roomId=roomId)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
-
+@scheduler.scheduled_job('cron', hour='23', minute='59', second='10,20,30,40,50,55', id='refresh_nxt_day')
+def refresh_nxt_day():
+    bi.__init__("config.toml")
 scheduler.start()
 
 if __name__ == "__main__":
@@ -76,7 +78,10 @@ if __name__ == "__main__":
             elif command[0] == "r":
                 refresh()
             elif command[0] == "sn":
-                scheduled_appointment()
+                if len(command) > 1:
+                    scheduled_appointment(command[1])
+                else:
+                    scheduled_appointment()
             elif command[0] == "cs":
                 scheduler.remove_job("nxt_day_app")
             elif command[0] == "clear":

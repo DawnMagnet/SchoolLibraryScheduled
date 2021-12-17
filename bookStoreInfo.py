@@ -7,9 +7,11 @@ import sys
 
 from getCookies import get_new_cookies
 
-
 sys.path.append(".")
 
+BROWSER_AGENT = "Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) " \
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 " \
+                "Mobile Safari/537.36 Edg/95.0.1020.40"
 
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
@@ -33,31 +35,31 @@ class BookStoreInfo:
                   &selectDate={today}&ruleId={ruleId}&\
                   mobile=true&linkSign=discuss'
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E304 Safari/602.1 Edg/95.0.4638.54',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': self.CONFIG['X_CSRF_TOKEN'],
+            'User-Agent'      : BROWSER_AGENT,
+            'Accept'          : 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language' : 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+            'Content-Type'    : 'application/json',
+            'X-CSRF-TOKEN'    : self.CONFIG['X_CSRF_TOKEN'],
             'X-Requested-With': 'XMLHttpRequest',
-            'Origin': 'http://libwx.cau.edu.cn',
-            'Connection': 'keep-alive',
-            'Referer': referer,
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache',
+            'Origin'          : 'http://libwx.cau.edu.cn',
+            'Connection'      : 'keep-alive',
+            'Referer'         : referer,
+            'Pragma'          : 'no-cache',
+            'Cache-Control'   : 'no-cache',
         }
 
         data = str({
-            "_stime": begin_time,
-            "_etime": end_time,
-            "_roomid": roomId,
+            "_stime"     : begin_time,
+            "_etime"     : end_time,
+            "_roomid"    : roomId,
             "_currentday": today,
-            "UUID": "VEmkgCYM",
-            "ruleId": ruleId,
-            "users": "2019307070109 2019321010102",
-            "usercount": "2",
-            "room_exp": "[]",
-            "_seatno": "0",
-            "LOCK": "true"
+            "UUID"       : "VEmkgCYM",
+            "ruleId"     : ruleId,
+            "users"      : "2019307070109 2019321010102",
+            "usercount"  : "2",
+            "room_exp"   : "[]",
+            "_seatno"    : "0",
+            "LOCK"       : "true"
         }).replace("'", '"')
         return requests.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
                              headers=headers, cookies=cookies, data=data)
@@ -72,7 +74,8 @@ class BookStoreInfo:
             available_period = []
             for hour in range(8, 22):
                 if self.full_data.loc[roomId][str(hour)] == 'O':
-                    if len(available_period) > 0 and len(available_period[-1]) < 3 and available_period[-1][-1] == hour - 1:
+                    if len(available_period) > 0 and len(available_period[-1]) < 3 and available_period[-1][
+                        -1] == hour - 1:
                         available_period[-1].append(hour)
                     else:
                         available_period.append([hour])
@@ -96,15 +99,15 @@ class BookStoreInfo:
 
         headers = {
             'Proxy-Connection': 'keep-alive',
-            'Accept': '*/*',
-            'DNT': '1',
-            'X-CSRF-TOKEN': self.CONFIG['X_CSRF_TOKEN'],
+            'Accept'          : '*/*',
+            'DNT'             : '1',
+            'X-CSRF-TOKEN'    : self.CONFIG['X_CSRF_TOKEN'],
             'X-Requested-With': 'XMLHttpRequest',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Origin': 'http://libwx.cau.edu.cn',
-            'Referer': 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            'User-Agent'      : BROWSER_AGENT,
+            'Content-Type'    : 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin'          : 'http://libwx.cau.edu.cn',
+            'Referer'         : 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
+            'Accept-Language' : 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
 
         data = {
@@ -115,19 +118,19 @@ class BookStoreInfo:
                                  headers=headers, cookies=cookies, data=data, verify=False)
         return response
 
-    def getAppointmentRecords(self,):
+    def getAppointmentRecords(self, ):
         cookies = {
             'JSESSIONID': self.CONFIG['JSESSIONID'],
         }
 
         headers = {
             'Proxy-Connection': 'keep-alive',
-            'Accept': '*/*',
-            'DNT': '1',
+            'Accept'          : '*/*',
+            'DNT'             : '1',
             'X-Requested-With': 'XMLHttpRequest',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
-            'Referer': 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            'User-Agent'      : BROWSER_AGENT,
+            'Referer'         : 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
+            'Accept-Language' : 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
 
         params = (
@@ -144,6 +147,7 @@ class BookStoreInfo:
         del res['pay']
         del res['title']
         return res
+
     def getRuledAppointment(self):
         import pandas as pd
         ap = self.getAppointmentRecords()
@@ -155,6 +159,7 @@ class BookStoreInfo:
         ap = ap[ap['begintime'] > now_pd]
         self.ruled_appointment = ap
         return ap
+
     def request_with_cookies(self, sec, day=""):
         req_address = 'http://libwx.cau.edu.cn/space/discuss/findRoom'
         sec_list = ['', '0a4c97c5b7844420abdc7128715b8885',
@@ -170,11 +175,11 @@ class BookStoreInfo:
                 url=url,
                 headers={
                     "X-CSRF-TOKEN": self.CONFIG['X_CSRF_TOKEN'],
-                    "Cookie": f"JSESSIONID={self.CONFIG['JSESSIONID']}"
+                    "Cookie"      : f"JSESSIONID={self.CONFIG['JSESSIONID']}"
                 },
                 data={
                     "currentPage": 1,
-                    "pageSize": 100
+                    "pageSize"   : 100
                 }
             ).json()
             df = pd.DataFrame(res["params"]["rooms"]["pageList"])
@@ -254,32 +259,33 @@ class BookStoreInfo:
                 print("No Appointment")
                 return False
         headers = {
-            'Proxy-Connection': 'keep-alive',
-            'DNT': '1',
+            'Proxy-Connection'         : 'keep-alive',
+            'DNT'                      : '1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            'User-Agent'               : BROWSER_AGENT,
+            'Accept'                   : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language'          : 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
 
         params = self.CONFIG[sign_config]
         params['roomId'] = roomId
 
-        response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params, verify=False)
+        response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params,
+                                verify=False)
         res = re.search("<span>(.*)</span>", response.text).group(1)
-        if res == (b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0').decode('utf-8'):
+        if res == (b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0').decode(
+                'utf-8'):
             res = "Already!"
         return res
 
-
 def desensitize(data):
     data['rname'] = data['rname'].map(lambda x: x.replace(
-        '层', '-').replace( b'\xe5\x8c\xba\xe4\xba\xa4\xe6\xb5\x81\xe7\xa9\xba\xe9\x97\xb4'.decode('utf-8'), '-').replace('排', '-').replace('组', ''))
+        '层', '-').replace(b'\xe5\x8c\xba\xe4\xba\xa4\xe6\xb5\x81\xe7\xa9\xba\xe9\x97\xb4'.decode('utf-8'), '-').replace(
+        '排', '-').replace('组', ''))
     return data
-
 
 def dprint(data):
     print(desensitize(data.copy()))
 
 def dprint_json(data):
-    return desensitize(data.copy()).to_json(orient = 'split', force_ascii = False)
+    return desensitize(data.copy()).to_json(orient='split', force_ascii=False)
