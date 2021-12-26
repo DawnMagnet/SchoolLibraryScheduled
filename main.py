@@ -41,7 +41,7 @@ def scheduled_appointment():
 scheduler.start()
 
 if __name__ == "__main__":
-    print('WelCome to SCL REPL v0.4!\nPrint "help" for more information\n> ', end='')
+    print('WelCome to SCL REPL v0.5!\nPrint "help" for more information\n> ', end='')
     while True:
         try:
             command = input().strip().split()
@@ -73,6 +73,9 @@ if __name__ == "__main__":
                 dprint(bi.avai_data)
             elif command[0] == "ap":
                 dprint(bi.ruled_appointment)
+            elif command[0] == "r":
+                refresh()
+                print('\b\b', end='')
             elif command[0] == "jb":
                 print(scheduler.get_jobs())
             elif command[0] == "sg":
