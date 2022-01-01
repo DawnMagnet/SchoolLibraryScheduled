@@ -1,9 +1,9 @@
 import datetime
-import toml
+import re
 
 import pandas as pd
 import requests
-import re
+import toml
 
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
@@ -143,6 +143,7 @@ class BookStoreInfo:
 
     def getRuledAppointment(self):
         import pandas as pd
+        import numpy as np
         ap = self.getAppointmentRecords()
         ap = ap[ap['sign'] == False]
         ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
@@ -150,6 +151,7 @@ class BookStoreInfo:
         ap.sort_values(by='begintime', inplace=True, ascending=False)
         now_pd = pd.to_datetime(datetime.datetime.now())
         ap = ap[ap['begintime'] > now_pd]
+        ap = ap[ap['cstatus'] == 0.0]
         self.ruled_appointment = ap
         return ap
 
@@ -234,6 +236,8 @@ class BookStoreInfo:
 
     def sign(self, sign_config='SIGN_PARAM', roomId=None):
         if roomId is None:
+            if len(self.ruled_appointment) == 0:
+                return "No Appoint at that time!"
             roomName = self.ruled_appointment['rname'].values[-1]
             roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
         headers = {

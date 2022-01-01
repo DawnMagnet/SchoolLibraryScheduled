@@ -20,23 +20,25 @@ def cur_time_str():
 def make_new_line():
     print("> ", end='')
 
-@scheduler.scheduled_job('interval', seconds=60, id="refresh", max_instances=100)
+@scheduler.scheduled_job('cron', minute='5, 30', hour='7-22', id="refresh", max_instances=100)
 def refresh():
     bi.__init__("config.toml")
-    # dprint(bi.ruled_appointment)
     print(cur_time_str(), "user A", bi.sign('SIGN_PARAM'))
     print(cur_time_str(), "user B", bi.sign('SIGN_PARAM_2'))
     make_new_line()
     
 
-
-def scheduled_appointment():
-    res = bi.makeOneSeatEveryAppointment(force=True)
+@scheduler.scheduled_job('cron', hour='0', minute='0', second='0', id='nxt_day_app')
+def scheduled_appointment(seat=None):
+    bi.__init__("config.toml")
+    res = bi.makeOneSeatEveryAppointment(roomId=seat,force=True)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
-
+# @scheduler.scheduled_job('cron', hour='23', minute='59', second='10,20,30,40,50,55', id='refresh_nxt_day')
+# def refresh_nxt_day():
+#     bi.__init__("config.toml")
 
 scheduler.start()
 
@@ -77,7 +79,7 @@ if __name__ == "__main__":
                 refresh()
                 print('\b\b', end='')
             elif command[0] == "jb":
-                print(scheduler.get_jobs())
+                scheduler.print_jobs()
             elif command[0] == "sg":
                 if len(command) > 1:
                     print(bi.sign(command[1]))
@@ -93,7 +95,10 @@ if __name__ == "__main__":
                 scheduler.add_job(scheduled_appointment, 'date',
                                     run_date=app_time, id='nxt_day_app')
             elif command[0] == "sn":
-                scheduled_appointment()
+                if len(command) > 1:
+                    scheduled_appointment(command[1])
+                else:
+                    scheduled_appointment()
             elif command[0] == "cs":
                 scheduler.remove_job("nxt_day_app")
             elif command[0] == "clear":
