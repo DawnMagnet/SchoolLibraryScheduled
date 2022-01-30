@@ -10,9 +10,7 @@ from requests.exceptions import ConnectTimeout
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
 
-        self.df = None
-        self.df4 = None
-        self.df1 = None
+        self.raw_data = None
         self.full_data = None
         self.available_data = None
         self.ruled_appointment = None
@@ -218,15 +216,15 @@ class BookStoreInfo:
         return df_n
 
     def refresh_available_info(self):
-        self.df1 = self.get_origin_info('1')
-        self.df4 = self.get_origin_info('4')
-        self.df = pd.DataFrame(pd.concat([self.df1, self.df4], axis=0))
-        self.full_data = self.deal_available_info()
+        df1 = self.get_origin_info('1')
+        df4 = self.get_origin_info('4')
+        self.raw_data = pd.DataFrame(pd.concat([df1, df4], axis=0))
+        self.full_data = self.deal_raw_data()
         self.full_data.to_csv("full_data.csv")
-        self.available_data = self.deal_available_info(available_filter=True)
+        self.available_data = self.deal_raw_data(available_filter=True)
 
-    def deal_available_info(self, available_filter=False):
-        dataframe = self.df.copy()
+    def deal_raw_data(self, available_filter=False):
+        raw_data = self.raw_data.copy()
         if available_filter:
             hour_now = datetime.datetime.now().hour
             if datetime.datetime.now().minute > 30:
@@ -234,19 +232,19 @@ class BookStoreInfo:
             # print(f'{hour_now = }')
             unavailable_suffix = 'X' * max(22 - hour_now, 0)
             res = []
-            for index, data in dataframe.iterrows():
+            for index, data in raw_data.iterrows():
                 if data['times'].endswith(unavailable_suffix):
                     continue
                 res.append(data)
-            dataframe = pd.DataFrame(res, columns=dataframe.columns)
-        # print(df, "cur")
-        dataframe['avai'] = dataframe['times'].map(lambda x: x.count('O'))
-        dataframe.index = dataframe['id']
-        del dataframe['id']
+            raw_data = pd.DataFrame(res, columns=raw_data.columns)
+        # print(raw_data, "cur")
+        raw_data['avai'] = raw_data['times'].map(lambda x: x.count('O'))
+        raw_data.index = raw_data['id']
+        del raw_data['id']
         for i in range(14):
-            dataframe[f"{8 + i}"] = dataframe['times'].map(lambda x: x[i])
-        dataframe = dataframe.sort_values(by='avai', ascending=False)
-        return dataframe
+            raw_data[f"{8 + i}"] = raw_data['times'].map(lambda x: x[i])
+        raw_data = raw_data.sort_values(by='avai', ascending=False)
+        return raw_data
 
     def sign(self, sign_config='SIGN_PARAM', room_id=None):
         if room_id is None:
@@ -258,8 +256,10 @@ class BookStoreInfo:
             'Proxy-Connection': 'keep-alive',
             'DNT': '1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,'
+                      'application/signed-exchange;v=b3;q=0.9',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
 
