@@ -10,6 +10,7 @@ from requests.exceptions import ConnectTimeout
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
 
+        self.df = None
         self.df4 = None
         self.df1 = None
         self.full_data = None
@@ -63,16 +64,16 @@ class BookStoreInfo:
         return requests.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
                              headers=headers, cookies=cookies, data=data)
 
-    def makeOneSeatEveryAppointment(self, roomId=None, force=False):
-        if roomId is None:
-            roomId = self.CONFIG['PREFER']
+    def makeOneSeatEveryAppointment(self, room_id=None, force=False):
+        if room_id is None:
+            room_id = self.CONFIG['PREFER']
         if force:
             available_period = [[20, 21], [17, 18, 19],
                                 [14, 15, 16], [11, 12, 13], [8, 9, 10]]
         else:
             available_period = []
             for hour in range(8, 22):
-                if self.full_data.loc[roomId][str(hour)] == 'O':
+                if self.full_data.loc[room_id][str(hour)] == 'O':
                     if len(available_period) > 0 and len(available_period[-1]) < 3 \
                             and available_period[-1][-1] == hour - 1:
                         available_period[-1].append(hour)
@@ -81,7 +82,7 @@ class BookStoreInfo:
         res_dict = {}
         for available_time_period in available_period:
             res = self.makeOneAppointment(
-                roomId, available_time_period[0], len(available_time_period))
+                room_id, available_time_period[0], len(available_time_period))
             try:
                 res_dict[str(available_time_period)] = res.json()
             except Exception as _:
@@ -128,7 +129,8 @@ class BookStoreInfo:
             'Accept': '*/*',
             'DNT': '1',
             'X-Requested-With': 'XMLHttpRequest',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/95.0.4638.54 Mobile Safari/537.36 Edg/95.0.1020.40',
             'Referer': 'http://libwx.cau.edu.cn/space/discuss/myAppoint?linkSign=myReserve&type=discuss',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         }
@@ -149,8 +151,6 @@ class BookStoreInfo:
         return res
 
     def getRuledAppointment(self):
-        import pandas as pd
-        import numpy as np
         ap = self.getAppointmentRecords()
         ap = ap[ap['sign'] == False]
         ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
@@ -221,12 +221,12 @@ class BookStoreInfo:
         self.df1 = self.get_origin_info('1')
         self.df4 = self.get_origin_info('4')
         self.df = pd.DataFrame(pd.concat([self.df1, self.df4], axis=0))
-        self.full_data = self.deal_available_info(self.df.copy())
+        self.full_data = self.deal_available_info()
         self.full_data.to_csv("full_data.csv")
-        self.available_data = self.deal_available_info(
-            self.df.copy(), available_filter=True)
+        self.available_data = self.deal_available_info(available_filter=True)
 
-    def deal_available_info(self, df, available_filter=False):
+    def deal_available_info(self, available_filter=False):
+        dataframe = self.df.copy()
         if available_filter:
             hour_now = datetime.datetime.now().hour
             if datetime.datetime.now().minute > 30:
@@ -234,26 +234,26 @@ class BookStoreInfo:
             # print(f'{hour_now = }')
             unavailable_suffix = 'X' * max(22 - hour_now, 0)
             res = []
-            for index, data in df.iterrows():
+            for index, data in dataframe.iterrows():
                 if data['times'].endswith(unavailable_suffix):
                     continue
                 res.append(data)
-            df = pd.DataFrame(res, columns=df.columns)
+            dataframe = pd.DataFrame(res, columns=dataframe.columns)
         # print(df, "cur")
-        df['avai'] = df['times'].map(lambda x: x.count('O'))
-        df.index = df['id']
-        del df['id']
+        dataframe['avai'] = dataframe['times'].map(lambda x: x.count('O'))
+        dataframe.index = dataframe['id']
+        del dataframe['id']
         for i in range(14):
-            df[f"{8 + i}"] = df['times'].map(lambda x: x[i])
-        df = df.sort_values(by='avai', ascending=False)
-        return df
+            dataframe[f"{8 + i}"] = dataframe['times'].map(lambda x: x[i])
+        dataframe = dataframe.sort_values(by='avai', ascending=False)
+        return dataframe
 
-    def sign(self, sign_config='SIGN_PARAM', roomId=None):
-        if roomId is None:
+    def sign(self, sign_config='SIGN_PARAM', room_id=None):
+        if room_id is None:
             if len(self.ruled_appointment) == 0:
                 return "No Appoint at that time!"
             roomName = self.ruled_appointment['rname'].values[-1]
-            roomId = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
+            room_id = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
         headers = {
             'Proxy-Connection': 'keep-alive',
             'DNT': '1',
@@ -264,12 +264,12 @@ class BookStoreInfo:
         }
 
         params = self.CONFIG[sign_config]
-        params['roomId'] = roomId
+        params['roomId'] = room_id
 
         response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params,
                                 verify=False)
         res = re.search("<span>(.*)</span>", response.text).group(1)
-        if res == (b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0').decode(
+        if res == b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0'.decode(
                 'utf-8'):
             res = "Already!"
         return res

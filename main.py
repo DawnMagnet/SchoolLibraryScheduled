@@ -33,7 +33,7 @@ def refresh():
 @scheduler.scheduled_job('cron', hour='0', minute='0', second='0', id='nxt_day_app')
 def scheduled_appointment(seat=None):
     bi.__init__("config.toml")
-    res = bi.makeOneSeatEveryAppointment(roomId=seat, force=True)
+    res = bi.makeOneSeatEveryAppointment(room_id=seat, force=True)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
