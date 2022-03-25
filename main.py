@@ -79,6 +79,10 @@ if __name__ == "__main__":
                 dprint(bi.available_data)
             elif command[0] == "ap":
                 dprint(bi.ruled_appointment)
+            elif command[0] == "raw_ap":
+                dprint(bi.raw_appointment)
+            elif command[0] == "remove_ap":
+                print(bi.cancelAppointment(command[1]).text)
             elif command[0] == "r":
                 refresh()
                 print('\b\b', end='')

@@ -1,5 +1,6 @@
 import datetime
 import re
+from json import JSONDecodeError
 
 import pandas as pd
 import requests
@@ -10,6 +11,7 @@ from requests.exceptions import ConnectTimeout
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
 
+        self.raw_appointment = None
         self.raw_data = None
         self.full_data = None
         self.available_data = None
@@ -150,13 +152,15 @@ class BookStoreInfo:
 
     def getRuledAppointment(self):
         ap = self.getAppointmentRecords()
+        self.raw_appointment = ap
         ap = ap[ap['sign'] == False]
-        ap['begintime'] = pd.to_datetime(ap['currentday'] + ' ' + ap['stime'])
-        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag', 'cstatus']]
+        ap.insert(0, 'begintime', pd.to_datetime(ap['currentday'] + ' ' + ap['stime']))
+        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag']]
+
         ap.sort_values(by='begintime', inplace=True, ascending=False)
         now_pd = pd.to_datetime(datetime.datetime.now())
         ap = ap[ap['begintime'] > now_pd]
-        ap = ap[ap['cstatus'] == 0.0]
+        # ap = ap[ap['cstatus'] == 0.0]
         self.ruled_appointment = ap
         return ap
 
@@ -175,12 +179,10 @@ class BookStoreInfo:
                 url=url,
                 headers={
                     "X-CSRF-TOKEN": self.CONFIG['X_CSRF_TOKEN'],
-                    "Cookie": f"JSESSIONID={self.CONFIG['JSESSIONID']}"
+                    "Cookie": f"JSESSIONID={self.CONFIG['JSESSIONID']}",
+                    "Content-Type": "application/x-www-form-urlencoded"
                 },
-                data={
-                    "currentPage": 1,
-                    "pageSize": 100
-                },
+                data="currentPage=1&pageSize=100",
                 timeout=5.0
             ).json()
             df = pd.DataFrame(res["params"]["rooms"]["pageList"])
@@ -190,6 +192,8 @@ class BookStoreInfo:
         except ConnectTimeout as _:
             print("[ERROR] NetWork Error! Please Check Connections Between Host and Server!")
             exit(0)
+        except JSONDecodeError as e:
+            return False, None, None
         except Exception as e:
             print(e)
             print(type(e))
