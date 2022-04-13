@@ -19,7 +19,7 @@ class BookStoreInfo:
         self.config_path = config_path
         self.CONFIG = toml.load(config_path)
         self.debug = debug
-        self.refresh_available_info()
+        self.refreshAvailableInfo()
         self.getRuledAppointment()
 
     def makeOneAppointment(self, room_id, start_time, remain_hours):
@@ -69,7 +69,7 @@ class BookStoreInfo:
             room_id = self.CONFIG['PREFER']
         if force:
             available_period = [[20, 21], [17, 18, 19],
-                                [14, 15, 16], [11, 12, 13], [8, 9, 10]]
+                                [14, 15, 16], [11, 12, 13]]
         else:
             available_period = []
             for hour in range(8, 22):
@@ -164,7 +164,7 @@ class BookStoreInfo:
         self.ruled_appointment = ap
         return ap
 
-    def request_with_cookies(self, sec, day=""):
+    def requestWithCookies(self, sec, day=""):
         req_address = 'http://libwx.cau.edu.cn/space/discuss/findRoom'
         sec_list = ['', '0a4c97c5b7844420abdc7128715b8885',
                     '', '', '31df48baed5148a5ae4eb219cdd1e415']
@@ -199,35 +199,35 @@ class BookStoreInfo:
             print(type(e))
             return False, None, None
 
-    def write_toml(self):
+    def writeToTomlFile(self):
         with open(self.config_path, "w") as f:
             toml.dump(self.CONFIG, f)
 
-    def get_origin_info(self, sec='4'):
-        checker, df, ruleId = self.request_with_cookies(sec)
+    def getOriginInfo(self, sec='4'):
+        checker, df, ruleId = self.requestWithCookies(sec)
 
         if not checker:
             # print("[INFO] Get New Cookies!")
-            jsessionid, x_csrf_token = self.get_new_cookies()
+            jsessionid, x_csrf_token = self.getNewCookies()
             self.CONFIG["JSESSIONID"], self.CONFIG["X_CSRF_TOKEN"] = jsessionid, x_csrf_token
-            self.write_toml()
-            checker, df, ruleId = self.request_with_cookies(sec)
+            self.writeToTomlFile()
+            checker, df, ruleId = self.requestWithCookies(sec)
         self.CONFIG['RULE_ID'] = ruleId
-        self.write_toml()
+        self.writeToTomlFile()
         df["times"] = df["times"].map(lambda x: "".join(
             [str('X' if line["select"] else 'O') for line in x]))
         df_n = df[["id", "rname", "times"]]
         return df_n
 
-    def refresh_available_info(self):
-        df1 = self.get_origin_info('1')
-        df4 = self.get_origin_info('4')
+    def refreshAvailableInfo(self):
+        df1 = self.getOriginInfo('1')
+        df4 = self.getOriginInfo('4')
         self.raw_data = pd.DataFrame(pd.concat([df1, df4], axis=0))
-        self.full_data = self.deal_raw_data()
+        self.full_data = self.dealRawData()
         self.full_data.to_csv("full_data.csv")
-        self.available_data = self.deal_raw_data(available_filter=True)
+        self.available_data = self.dealRawData(available_filter=True)
 
-    def deal_raw_data(self, available_filter=False):
+    def dealRawData(self, available_filter=False):
         raw_data = self.raw_data.copy()
         if available_filter:
             hour_now = datetime.datetime.now().hour
@@ -278,7 +278,7 @@ class BookStoreInfo:
             res = "Already!"
         return res
 
-    def get_new_cookies(self):
+    def getNewCookies(self):
         common_headers = {
             'Connection': 'keep-alive',
             'DNT': '1',
@@ -328,6 +328,20 @@ class BookStoreInfo:
         X_CSRF_TOKEN = re.search(
             r'name="_csrf" content="(?P<CUR>.*)"', response.text).groupdict()['CUR']
         return [JSESSIONID, X_CSRF_TOKEN]
+
+    """EXPORT FUNCTIONS"""
+
+    def showFullData(self):
+        dprint(self.full_data)
+
+    def showAvailableData(self):
+        dprint(self.available_data)
+
+    def showRuledAppointment(self):
+        dprint(self.ruled_appointment)
+
+    def showRawAppointment(self):
+        dprint(self.raw_appointment)
 
 
 def desensitize(data: pd.DataFrame):
