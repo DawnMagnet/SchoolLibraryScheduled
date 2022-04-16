@@ -10,22 +10,22 @@ from json import JSONDecodeError
 class BookStoreInfo:
     def __init__(self, config_path, debug=False):
 
-        self.raw_appointment = None
-        self.raw_data = None
-        self.full_data = None
-        self.available_data = None
-        self.unsigned_appointment = None
+        self.raw_appointment = pd.DataFrame()
+        self.raw_data = pd.DataFrame()
+        self.full_data = pd.DataFrame()
+        self.available_data = pd.DataFrame()
+        self.unsigned_appointment = pd.DataFrame()
         self.config_path = config_path
         self.CONFIG = toml.load(config_path)
         self.debug = debug
+        self.refreshCookiesAndToken()
 
     async def refresh(self):
+        self.refreshCookiesAndToken()
         resultRefreshAvailableInfo = self.refreshAvailableInfo()
         resultRefreshUnsignedAppointment = self.refreshUnsignedAppointment()
-
         await resultRefreshAvailableInfo
         await resultRefreshUnsignedAppointment
-
 
     async def makeOneAppointment(self, room_id, start_time, remain_hours):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -66,7 +66,9 @@ class BookStoreInfo:
             "_seatno": "0",
             "LOCK": "true"
         }).replace("'", '"')
-        return requests.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
+        s = requests.session()
+        s.trust_env = False
+        return s.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
                              headers=headers, cookies=cookies, data=data)
 
     async def makeOneSeatEveryAppointment(self, room_id=None, force=False):
@@ -93,10 +95,8 @@ class BookStoreInfo:
             res: requests.Response = (await task)
             try:
                 res_dict[str(available_time_period)] = res.json()
-            except JSONDecodeError as e:
+            except Exception as e:
                 res_dict[str(available_time_period)] = str(e)
-            except Exception as _:
-                res_dict[str(available_time_period)] = 'json parse error'
         return res_dict
 
     def cancelAppointment(self, appoint_id):
@@ -120,7 +120,9 @@ class BookStoreInfo:
         data = {
             'id': appoint_id
         }
-        response = requests.post(
+        s = requests.session()
+        s.trust_env = False
+        response = s.post(
             'http://libwx.cau.edu.cn/space/discuss/cancleAppiont',
             headers=headers,
             cookies=cookies,
@@ -151,8 +153,9 @@ class BookStoreInfo:
             ('rtypeid', ''),
             ('type', 'discuss'),
         )
-
-        response = requests.get('http://libwx.cau.edu.cn/space/discuss/queryAppiont',
+        s = requests.session()
+        s.trust_env = False
+        response = s.get('http://libwx.cau.edu.cn/space/discuss/queryAppiont',
                                 headers=headers, params=params, cookies=cookies, verify=False)
         res = pd.DataFrame(response.json()["params"]["myappionts"]["pageList"])
         del res['uid']
@@ -185,7 +188,9 @@ class BookStoreInfo:
             day = datetime.datetime.now().strftime('%Y-%m-%d')
         url = f"{req_address}/{Section}/{unknown}/{day}"
         try:
-            res = requests.post(
+            s = requests.session()
+            s.trust_env = False
+            res = s.post(
                 url=url,
                 headers={
                     "X-CSRF-TOKEN": self.CONFIG['X_CSRF_TOKEN'],
@@ -193,7 +198,7 @@ class BookStoreInfo:
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
                 data="currentPage=1&pageSize=100",
-                timeout=5.0
+                timeout=(2, 3)
             ).json()
             df = pd.DataFrame(res["params"]["rooms"]["pageList"])
             ruleId = res["params"]["ruleId"]
@@ -213,14 +218,15 @@ class BookStoreInfo:
         with open(self.config_path, "w") as f:
             toml.dump(self.CONFIG, f)
 
+    def refreshCookiesAndToken(self):
+        jsessionid, x_csrf_token = self.getNewCookies()
+        self.CONFIG["JSESSIONID"], self.CONFIG["X_CSRF_TOKEN"] = jsessionid, x_csrf_token
+        self.writeToTomlFile()
+
     async def getOriginInfo(self, sec='4'):
         checker, df, ruleId = self.requestWithCookies(sec)
-
-        if not checker:
-            # print("[INFO] Get New Cookies!")
-            jsessionid, x_csrf_token = self.getNewCookies()
-            self.CONFIG["JSESSIONID"], self.CONFIG["X_CSRF_TOKEN"] = jsessionid, x_csrf_token
-            self.writeToTomlFile()
+        while not checker:
+            self.refreshCookiesAndToken()
             checker, df, ruleId = self.requestWithCookies(sec)
         self.CONFIG['RULE_ID'] = ruleId
         self.writeToTomlFile()
@@ -280,8 +286,9 @@ class BookStoreInfo:
 
         params = self.CONFIG[sign_config]
         params['roomId'] = room_id
-
-        response = requests.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params,
+        s = requests.session()
+        s.trust_env = False
+        response = s.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params,
                                 verify=False)
         res = re.search("<span>(.*)</span>", response.text).group(1)
         if res == b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0'.decode(
@@ -305,8 +312,9 @@ class BookStoreInfo:
             ('parameter', '1'),
             ('openid', self.CONFIG["OPEN_ID"]),
         )
-
-        response = requests.get('http://libwx.cau.edu.cn/remote/static/authIndex',
+        s = requests.session()
+        s.trust_env = False
+        response = s.get('http://libwx.cau.edu.cn/remote/static/authIndex',
                                 headers=common_headers, params=params, verify=False)
         url_suffix = re.search(
             r'window.location.href = urls \+ "(?P<CUR>.*);', response.text).groupdict()['CUR']
@@ -315,7 +323,9 @@ class BookStoreInfo:
             **common_headers,
             'Referer': 'http://libwx.cau.edu.cn/remote/static/authIndex?parameter=1&openid=oJ7t-1fCfr-FokhmYcI5QerAJIxo',
         }
-        response = requests.get('http://libwx.cau.edu.cn/space/static/dowechatlogin?type=discuss' +
+        s = requests.session()
+        s.trust_env = False
+        response = s.get('http://libwx.cau.edu.cn/space/static/dowechatlogin?type=discuss' +
                                 url_suffix, headers=headers, verify=False, allow_redirects=False)
         JSESSIONID = re.search(r'JSESSIONID=(?P<CUR>.*); Path',
                                response.headers['Set-Cookie']).groupdict()['CUR']
@@ -333,8 +343,9 @@ class BookStoreInfo:
             ('linkSign', 'discuss'),
             ('type', 'discuss'),
         )
-
-        response = requests.get('http://libwx.cau.edu.cn/space/discuss/mobileIndex',
+        s = requests.session()
+        s.trust_env = False
+        response = s.get('http://libwx.cau.edu.cn/space/discuss/mobileIndex',
                                 headers=headers, params=params, cookies=cookies, verify=False)
         X_CSRF_TOKEN = re.search(
             r'name="_csrf" content="(?P<CUR>.*)"', response.text).groupdict()['CUR']
@@ -343,7 +354,8 @@ class BookStoreInfo:
     """EXPORT FUNCTIONS"""
 
     def showFullData(self):
-        dprint(self.full_data)
+        # print(self.full_data.dtypes)
+        dprint(self.full_data[['rname', 'avai']])
 
     def showAvailableData(self):
         dprint(self.available_data)

@@ -2,9 +2,7 @@ import asyncio
 import os
 import time
 import nest_asyncio
-# from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-# from apscheduler.executors.asyncio import AsyncIOExecutor
 from bookStoreInfo import BookStoreInfo
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
@@ -39,13 +37,14 @@ async def scheduled_appointment(seat=None):
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
+    print("> ")
 
 
 async def main():
     print_formatted_text(FormattedText([
         ('#ffdd00', 'WelCome to '),
         ('#ff0000 bold', 'SCL REPL '),
-        ('#44ff00 bold italic', 'v0.6!\n'),
+        ('#44ff00 bold italic', 'v0.8!\n'),
         ('', 'Print '),
         ('#ff00dd bold', 'help '),
         ('', 'for more information\n'),
@@ -133,6 +132,7 @@ async def main():
                 print('Unknown command\nPrint "help" for more information')
         except Exception as e:
             print(e)
+            raise e
 
 if __name__ == '__main__':
     scheduler.start()
