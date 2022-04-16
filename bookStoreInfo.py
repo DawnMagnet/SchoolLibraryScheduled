@@ -1,11 +1,10 @@
 import datetime
 import re
-from json import JSONDecodeError
-
 import pandas as pd
 import requests
 import toml
 from requests.exceptions import ConnectTimeout
+from json import JSONDecodeError
 
 
 class BookStoreInfo:
@@ -15,14 +14,20 @@ class BookStoreInfo:
         self.raw_data = None
         self.full_data = None
         self.available_data = None
-        self.ruled_appointment = None
+        self.unsigned_appointment = None
         self.config_path = config_path
         self.CONFIG = toml.load(config_path)
         self.debug = debug
-        self.refreshAvailableInfo()
-        self.getRuledAppointment()
 
-    def makeOneAppointment(self, room_id, start_time, remain_hours):
+    async def refresh(self):
+        resultRefreshAvailableInfo = self.refreshAvailableInfo()
+        resultRefreshUnsignedAppointment = self.refreshUnsignedAppointment()
+
+        await resultRefreshAvailableInfo
+        await resultRefreshUnsignedAppointment
+
+
+    async def makeOneAppointment(self, room_id, start_time, remain_hours):
         today = datetime.datetime.now().strftime('%Y-%m-%d')
         begin_time = str(start_time * 60)
         end_time = str((start_time + remain_hours) * 60)
@@ -64,7 +69,7 @@ class BookStoreInfo:
         return requests.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
                              headers=headers, cookies=cookies, data=data)
 
-    def makeOneSeatEveryAppointment(self, room_id=None, force=False):
+    async def makeOneSeatEveryAppointment(self, room_id=None, force=False):
         if room_id is None:
             room_id = self.CONFIG['PREFER']
         if force:
@@ -79,12 +84,17 @@ class BookStoreInfo:
                         available_period[-1].append(hour)
                     else:
                         available_period.append([hour])
+
+        # 并行
         res_dict = {}
-        for available_time_period in available_period:
-            res = self.makeOneAppointment(
-                room_id, available_time_period[0], len(available_time_period))
+        await_array = [self.makeOneAppointment(room_id, available_time_period[0], len(available_time_period)) for available_time_period in available_period]
+        # res_array = asyncio.run(asyncio.wait(await_array))[0]
+        for task, available_time_period in zip(await_array, available_period):
+            res: requests.Response = (await task)
             try:
                 res_dict[str(available_time_period)] = res.json()
+            except JSONDecodeError as e:
+                res_dict[str(available_time_period)] = str(e)
             except Exception as _:
                 res_dict[str(available_time_period)] = 'json parse error'
         return res_dict
@@ -119,7 +129,7 @@ class BookStoreInfo:
         )
         return response
 
-    def getAppointmentRecords(self, ):
+    def getRawAppointments(self, ):
         cookies = {
             'JSESSIONID': self.CONFIG['JSESSIONID'],
         }
@@ -150,8 +160,8 @@ class BookStoreInfo:
         del res['title']
         return res
 
-    def getRuledAppointment(self):
-        ap = self.getAppointmentRecords()
+    async def refreshUnsignedAppointment(self):
+        ap = self.getRawAppointments()
         self.raw_appointment = ap
         ap = ap[ap['sign'] == False]
         ap.insert(0, 'begintime', pd.to_datetime(ap['currentday'] + ' ' + ap['stime']))
@@ -160,9 +170,9 @@ class BookStoreInfo:
         ap.sort_values(by='begintime', inplace=True, ascending=False)
         now_pd = pd.to_datetime(datetime.datetime.now())
         ap = ap[ap['begintime'] > now_pd]
+        ap = ap[ap['status'] != 0]
         # ap = ap[ap['cstatus'] == 0.0]
-        self.ruled_appointment = ap
-        return ap
+        self.unsigned_appointment = ap
 
     def requestWithCookies(self, sec, day=""):
         req_address = 'http://libwx.cau.edu.cn/space/discuss/findRoom'
@@ -192,7 +202,7 @@ class BookStoreInfo:
         except ConnectTimeout as _:
             print("[ERROR] NetWork Error! Please Check Connections Between Host and Server!")
             exit(0)
-        except JSONDecodeError as e:
+        except JSONDecodeError as _:
             return False, None, None
         except Exception as e:
             print(e)
@@ -203,7 +213,7 @@ class BookStoreInfo:
         with open(self.config_path, "w") as f:
             toml.dump(self.CONFIG, f)
 
-    def getOriginInfo(self, sec='4'):
+    async def getOriginInfo(self, sec='4'):
         checker, df, ruleId = self.requestWithCookies(sec)
 
         if not checker:
@@ -214,15 +224,16 @@ class BookStoreInfo:
             checker, df, ruleId = self.requestWithCookies(sec)
         self.CONFIG['RULE_ID'] = ruleId
         self.writeToTomlFile()
+        # print(df)
         df["times"] = df["times"].map(lambda x: "".join(
             [str('X' if line["select"] else 'O') for line in x]))
         df_n = df[["id", "rname", "times"]]
         return df_n
 
-    def refreshAvailableInfo(self):
+    async def refreshAvailableInfo(self):
         df1 = self.getOriginInfo('1')
         df4 = self.getOriginInfo('4')
-        self.raw_data = pd.DataFrame(pd.concat([df1, df4], axis=0))
+        self.raw_data = pd.DataFrame(pd.concat([await df1, await df4], axis=0))
         self.full_data = self.dealRawData()
         self.full_data.to_csv("full_data.csv")
         self.available_data = self.dealRawData(available_filter=True)
@@ -250,11 +261,11 @@ class BookStoreInfo:
         raw_data = raw_data.sort_values(by='avai', ascending=False)
         return raw_data
 
-    def sign(self, sign_config='SIGN_PARAM', room_id=None):
+    def sign(self, sign_config='person1', room_id=None):
         if room_id is None:
-            if len(self.ruled_appointment) == 0:
+            if len(self.unsigned_appointment) == 0:
                 return "No Appoint at that time!"
-            roomName = self.ruled_appointment['rname'].values[-1]
+            roomName = self.unsigned_appointment['rname'].values[-1]
             room_id = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
         headers = {
             'Proxy-Connection': 'keep-alive',
@@ -337,11 +348,14 @@ class BookStoreInfo:
     def showAvailableData(self):
         dprint(self.available_data)
 
-    def showRuledAppointment(self):
-        dprint(self.ruled_appointment)
+    def showUnsignedAppointment(self):
+        dprint(self.unsigned_appointment)
 
     def showRawAppointment(self):
         dprint(self.raw_appointment)
+
+    def showRawData(self):
+        dprint(self.raw_data)
 
 
 def desensitize(data: pd.DataFrame):

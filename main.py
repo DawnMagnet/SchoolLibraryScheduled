@@ -1,6 +1,10 @@
+import asyncio
 import os
-
-from apscheduler.schedulers.background import BackgroundScheduler
+import time
+import nest_asyncio
+# from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+# from apscheduler.executors.asyncio import AsyncIOExecutor
 from bookStoreInfo import BookStoreInfo
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
@@ -9,57 +13,44 @@ from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
 
-session = PromptSession(message="> ", history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory(),)
-scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
+nest_asyncio.apply()
+session: PromptSession = PromptSession(message="> ", history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory(), )
+scheduler = AsyncIOScheduler(timezone='Asia/Shanghai')
 bi = BookStoreInfo("config.toml")
 
 
-def now_time_pd():
-    from pandas import to_datetime
-    from datetime import datetime
-    return to_datetime(datetime.now())
-
-
 def cur_time_str():
-    import time
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
 @scheduler.scheduled_job('cron', minute='5, 30', hour='7-22', id="refresh", max_instances=100)
-def refresh():
-    bi.__init__("config.toml")
-    print(cur_time_str(), "user A", bi.sign('SIGN_PARAM'))
-    print(cur_time_str(), "user B", bi.sign('SIGN_PARAM_2'))
+async def refresh_and_sign():
+    await bi.refresh()
+    print(cur_time_str(), 'person1', bi.sign('person1'))
+    print(cur_time_str(), 'person2', bi.sign('person2'))
+    print("> ")
 
 
 @scheduler.scheduled_job('cron', hour='0', minute='0', second='0', id='nxt_day_app')
-def scheduled_appointment(seat=None):
-    bi.__init__("config.toml")
-    res = bi.makeOneSeatEveryAppointment(room_id=seat, force=True)
+async def scheduled_appointment(seat=None):
+    # bi.refresh()
+    res = await bi.makeOneSeatEveryAppointment(room_id=seat, force=True)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
                                     res[time_period]['status'], res[time_period]['content']))
 
 
-# @scheduler.scheduled_job('cron', hour='23', minute='59', second='10,20,30,40,50,55', id='refresh_nxt_day')
-# def refresh_nxt_day():
-#     bi.__init__("config.toml")
-
-scheduler.start()
-
-if __name__ == "__main__":
-
-    text = FormattedText([
+async def main():
+    print_formatted_text(FormattedText([
         ('#ffdd00', 'WelCome to '),
         ('#ff0000 bold', 'SCL REPL '),
         ('#44ff00 bold italic', 'v0.6!\n'),
         ('', 'Print '),
         ('#ff00dd bold', 'help '),
         ('', 'for more information\n'),
-    ])
-
-    print_formatted_text(text)
+    ]))
+    await bi.refresh()
     while True:
         try:
             command = session.prompt().strip().split()
@@ -68,12 +59,21 @@ if __name__ == "__main__":
             elif command[0] in ["help", "h", "?"]:
                 print("""
     [{}]
+
+    [[program control]]
     help: print this help message
        ?: print this help message
     exit: exit the program
-    la  : print school library full list
-    ls  : print school library available list
-    ap  : print appointments list
+
+    [[data control]]
+    la  : seat available
+    ls  : seat raw
+    lr  : seat full
+    ap  : unsigned appointments
+    ar  : appointments raw
+    ra  : remove specific appointment
+
+    [[scheduler control]]
     jb  : print background jobs(debug)
     r   : force refresh info(debug)
     cs  : cancel schedule
@@ -90,14 +90,16 @@ if __name__ == "__main__":
                 bi.showFullData()
             elif command[0] == "ls":
                 bi.showAvailableData()
+            elif command[0] == "lr":
+                bi.showRawData()
             elif command[0] == "ap":
-                bi.showRuledAppointment()
-            elif command[0] == "raw_ap":
+                bi.showUnsignedAppointment()
+            elif command[0] == "ar":
                 bi.showRawAppointment()
-            elif command[0] == "remove_ap":
+            elif command[0] == "ra":
                 print(bi.cancelAppointment(command[1]).text)
             elif command[0] == "r":
-                refresh()
+                await refresh_and_sign()
                 print('\b\b', end='')
             elif command[0] == "jb":
                 scheduler.print_jobs()
@@ -118,14 +120,21 @@ if __name__ == "__main__":
                                   run_date=app_time, id='nxt_day_app')
             elif command[0] == "sn":
                 if len(command) > 1:
-                    scheduled_appointment(command[1])
+                    await scheduled_appointment(command[1])
                 else:
-                    scheduled_appointment()
+                    await scheduled_appointment()
             elif command[0] == "cs":
                 scheduler.remove_job("nxt_day_app")
+            elif command[0] == "ca":
+                print(bi.cancelAppointment(command[1]).json())
             elif command[0] == "clear":
                 os.system('clear')
             else:
                 print('Unknown command\nPrint "help" for more information')
         except Exception as e:
             print(e)
+
+if __name__ == '__main__':
+    scheduler.start()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
