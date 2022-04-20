@@ -1,5 +1,7 @@
 import datetime
 import re
+
+import numpy
 import pandas as pd
 import requests
 import toml
@@ -167,14 +169,14 @@ class BookStoreInfo:
         ap = self.getRawAppointments()
         self.raw_appointment = ap
         ap = ap[ap['sign'] == False]
-        ap.insert(0, 'begintime', pd.to_datetime(ap['currentday'] + ' ' + ap['stime']))
-        ap = ap[['id', 'begintime', 'etime', 'rname', 'status', 'flag']]
+        ap.insert(0, 'app_time', pd.to_datetime(ap['currentday'] + ' ' + ap['stime'], infer_datetime_format=True))
+        ap = ap[['id', 'app_time', 'etime', 'rname', 'status', 'flag']]
 
-        ap.sort_values(by='begintime', inplace=True, ascending=False)
+        ap.sort_values(by='app_time', inplace=True, ascending=False)
         now_pd = pd.to_datetime(datetime.datetime.now())
-        ap = ap[ap['begintime'] > now_pd]
+        latest_app_time = now_pd - pd.Timedelta(minutes=20)
+        ap = ap[ap['app_time'] > latest_app_time]
         ap = ap[ap['status'] != 0]
-        # ap = ap[ap['cstatus'] == 0.0]
         self.unsigned_appointment = ap
 
     def requestWithCookies(self, sec, day=""):
@@ -225,7 +227,7 @@ class BookStoreInfo:
 
     async def getOriginInfo(self, sec='4'):
         checker, df, ruleId = self.requestWithCookies(sec)
-        while not checker:
+        if not checker:
             self.refreshCookiesAndToken()
             checker, df, ruleId = self.requestWithCookies(sec)
         self.CONFIG['RULE_ID'] = ruleId
@@ -271,6 +273,13 @@ class BookStoreInfo:
         if room_id is None:
             if len(self.unsigned_appointment) == 0:
                 return "No Appoint at that time!"
+
+            app_time: numpy.datetime64 = self.unsigned_appointment['app_time'].values[-1]
+            app_time: datetime.datetime = pd.Timestamp(app_time.astype(int)).to_pydatetime()
+            earliest_app_time = app_time - datetime.timedelta(hours=1)
+            now: datetime.datetime = datetime.datetime.now()
+            if earliest_app_time > now:
+                return f"Appointment is too early! Please try again after time {earliest_app_time}."
             roomName = self.unsigned_appointment['rname'].values[-1]
             room_id = self.full_data[self.full_data['rname'] == roomName].index.values[-1]
         headers = {
