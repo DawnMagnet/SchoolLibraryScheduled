@@ -11,11 +11,19 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 
 nest_asyncio.apply()
-session: PromptSession = PromptSession(message="> ", history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory(), )
-scheduler = AsyncIOScheduler(timezone='Asia/Shanghai')
+session: PromptSession = PromptSession(
+    message="> ",
+    history=InMemoryHistory(),
+    auto_suggest=AutoSuggestFromHistory(),
+)
+job_defaults = {
+    'coalesce': True,
+    'misfire_grace_time': None
+}
+scheduler = AsyncIOScheduler(timezone='Asia/Shanghai', job_defaults=job_defaults)
 bi = BookStoreInfo("config.toml")
 helper_text = """
     [{}]
@@ -53,16 +61,16 @@ async def sign_all():
     print(cur_time_str(), 'person2', bi.sign('person2'))
 
 
-@scheduler.scheduled_job('cron', minute='5, 30', hour='7-22', id="refresh", max_instances=100)
+@scheduler.scheduled_job('cron', minute='5, 30', hour='7-22', id="refresh")
 async def refresh_and_sign_all():
     await bi.refresh()
     await sign_all()
 
 
 @scheduler.scheduled_job('cron', hour='0', minute='0', second='0', id='nxt_day_app')
-async def scheduled_appointment(seat=None):
+async def scheduled_appointment(seat=None, force='noon'):
     # bi.refresh()
-    res = await bi.makeOneSeatEveryAppointment(room_id=seat, force=True)
+    res = await bi.makeOneSeatEveryAppointment(room_id=seat, force=force)
     print("[SCHEDULED RESULT]")
     for time_period in res.keys():
         print("[{}]{} {} {}".format(cur_time_str(), time_period,
@@ -81,7 +89,7 @@ async def main():
     await bi.refresh()
     while True:
         try:
-            command = session.prompt().strip().split()
+            command: list[str] = session.prompt().strip().split()
             if not command:
                 pass
             elif command[0] in ["help", "h", "?"]:
@@ -111,7 +119,7 @@ async def main():
                 if len(command) > 1 and command[1] == 'all':
                     await sign_all()
                 elif len(command) > 1:
-                    print(bi.sign(command[1]))
+                    print(f'{command[1]} sign result: {bi.sign(command[1])}')
                 else:
                     print(bi.sign())
             elif command[0] == "s":
@@ -123,8 +131,13 @@ async def main():
                 scheduler.add_job(scheduled_appointment, 'date',
                                   run_date=app_time, id='nxt_day_app')
             elif command[0] == "sn":
-                if len(command) > 1:
-                    await scheduled_appointment(command[1])
+                if len(command) > 2:
+                    await scheduled_appointment(command[1], command[2])
+                elif len(command) > 1:
+                    if len(command[1]) < 10:
+                        await scheduled_appointment(force=command[1])
+                    else:
+                        await scheduled_appointment(seat=command[1])
                 else:
                     await scheduled_appointment()
             elif command[0] == "cs":

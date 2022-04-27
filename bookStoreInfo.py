@@ -1,10 +1,12 @@
 import datetime
+import functools
 import re
 
 import numpy
 import pandas as pd
 import requests
 import toml
+import math
 from requests.exceptions import ConnectTimeout
 from json import JSONDecodeError
 
@@ -71,14 +73,42 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         return s.post('http://libwx.cau.edu.cn/space/form/dynamic/saveFormLock',
-                             headers=headers, cookies=cookies, data=data)
+                      headers=headers, cookies=cookies, data=data)
 
-    async def makeOneSeatEveryAppointment(self, room_id=None, force=False):
+    async def makeOneSeatEveryAppointment(self, room_id: str = None, force: str = None):
+        from typing import Iterable, Sized
+
+        @functools.lru_cache
+        def parse(data):
+            sp = data.split('-')
+            if len(sp) == 2:
+                try:
+                    a, b = int(sp[0]), int(sp[1])
+                    if a > b:
+                        a, b = b, a
+                    tmp = list(reversed(range(a, b)))
+                    return [tmp[3 * i:3 * i + 3] for i in range(math.ceil(len(tmp) / 3))]
+                except ValueError:
+                    return parse('8-23')
+            else:
+                return parse('8-23')
+
         if room_id is None:
             room_id = self.CONFIG['PREFER']
         if force:
-            available_period = [[20, 21], [17, 18, 19],
-                                [14, 15, 16], [11, 12, 13]]
+            available_period = parse("8-23")
+            if isinstance(force, str):
+                # Presets
+                if force == "all":
+                    ...
+                elif force == "noon":
+                    available_period = parse("11-23")
+                else:
+                    available_period = parse(force)
+            # elif isinstance(force, Iterable) and all(isinstance(x, Sized) and len(x) == 2 for x in force):
+            #     ...
+            # else:
+            #     ...
         else:
             available_period = []
             for hour in range(8, 22):
@@ -91,7 +121,8 @@ class BookStoreInfo:
 
         # 并行
         res_dict = {}
-        await_array = [self.makeOneAppointment(room_id, available_time_period[0], len(available_time_period)) for available_time_period in available_period]
+        await_array = [self.makeOneAppointment(room_id, available_time_period[0], len(available_time_period)) for
+                       available_time_period in available_period]
         # res_array = asyncio.run(asyncio.wait(await_array))[0]
         for task, available_time_period in zip(await_array, available_period):
             res: requests.Response = (await task)
@@ -158,7 +189,7 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         response = s.get('http://libwx.cau.edu.cn/space/discuss/queryAppiont',
-                                headers=headers, params=params, cookies=cookies, verify=False)
+                         headers=headers, params=params, cookies=cookies, verify=False)
         res = pd.DataFrame(response.json()["params"]["myappionts"]["pageList"])
         del res['uid']
         del res['pay']
@@ -298,7 +329,7 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         response = s.get('http://libwx.cau.edu.cn/space/static/cau/mediaCheckIn', headers=headers, params=params,
-                                verify=False)
+                         verify=False)
         res = re.search("<span>(.*)</span>", response.text).group(1)
         if res == b'\xe5\xbd\x93\xe5\x89\x8d\xe9\xa2\x84\xe7\xba\xa6\xe5\xb7\xb2\xe7\xad\xbe\xe5\x88\xb0'.decode(
                 'utf-8'):
@@ -324,7 +355,7 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         response = s.get('http://libwx.cau.edu.cn/remote/static/authIndex',
-                                headers=common_headers, params=params, verify=False)
+                         headers=common_headers, params=params, verify=False)
         url_suffix = re.search(
             r'window.location.href = urls \+ "(?P<CUR>.*);', response.text).groupdict()['CUR']
 
@@ -335,7 +366,7 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         response = s.get('http://libwx.cau.edu.cn/space/static/dowechatlogin?type=discuss' +
-                                url_suffix, headers=headers, verify=False, allow_redirects=False)
+                         url_suffix, headers=headers, verify=False, allow_redirects=False)
         JSESSIONID = re.search(r'JSESSIONID=(?P<CUR>.*); Path',
                                response.headers['Set-Cookie']).groupdict()['CUR']
 
@@ -355,7 +386,7 @@ class BookStoreInfo:
         s = requests.session()
         s.trust_env = False
         response = s.get('http://libwx.cau.edu.cn/space/discuss/mobileIndex',
-                                headers=headers, params=params, cookies=cookies, verify=False)
+                         headers=headers, params=params, cookies=cookies, verify=False)
         X_CSRF_TOKEN = re.search(
             r'name="_csrf" content="(?P<CUR>.*)"', response.text).groupdict()['CUR']
         return [JSESSIONID, X_CSRF_TOKEN]
