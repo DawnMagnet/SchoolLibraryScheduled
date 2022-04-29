@@ -87,7 +87,7 @@ class BookStoreInfo:
                     if a > b:
                         a, b = b, a
                     tmp = list(reversed(range(a, b)))
-                    return [tmp[3 * i:3 * i + 3] for i in range(math.ceil(len(tmp) / 3))]
+                    return [list(reversed(tmp[3 * i:3 * i + 3])) for i in range(math.ceil(len(tmp) / 3))]
                 except ValueError:
                     return parse('8-23')
             else:

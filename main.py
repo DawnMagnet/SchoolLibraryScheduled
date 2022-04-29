@@ -68,7 +68,7 @@ async def refresh_and_sign_all():
 
 
 @scheduler.scheduled_job('cron', hour='0', minute='0', second='0', id='nxt_day_app')
-async def scheduled_appointment(seat=None, force='noon'):
+async def scheduled_appointment(seat=None, force='10-23'):
     # bi.refresh()
     res = await bi.makeOneSeatEveryAppointment(room_id=seat, force=force)
     print("[SCHEDULED RESULT]")
