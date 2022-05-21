@@ -76,7 +76,6 @@ class BookStoreInfo:
                       headers=headers, cookies=cookies, data=data)
 
     async def makeOneSeatEveryAppointment(self, room_id: str = None, force: str = None):
-        from typing import Iterable, Sized
 
         @functools.lru_cache
         def parse(data):

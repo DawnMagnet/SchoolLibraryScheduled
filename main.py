@@ -11,7 +11,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
 
-VERSION = "0.8.3"
+VERSION = "0.8.4"
 
 nest_asyncio.apply()
 session: PromptSession = PromptSession(
