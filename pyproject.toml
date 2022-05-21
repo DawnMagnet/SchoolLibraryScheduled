@@ -5,7 +5,7 @@ description = ""
 authors = ["DawnMagnet <axccjqh@qq.com>"]
 
 [tool.poetry.dependencies]
-python = "3.9"
+python = "~3.9"
 requests = "^2.27.1"
 nest-asyncio = "^1.5.5"
 APScheduler = "^3.9.1"
@@ -22,3 +22,4 @@ build-backend = "poetry.core.masonry.api"
 [[tool.poetry.source]]
 name = "tuna"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
