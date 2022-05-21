@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "schoollibraryscheduled"
+version = "0.1.0"
+description = ""
+authors = ["DawnMagnet <axccjqh@qq.com>"]
+
+[tool.poetry.dependencies]
+python = "3.9"
+requests = "^2.27.1"
+nest-asyncio = "^1.5.5"
+APScheduler = "^3.9.1"
+prompt-toolkit = "^3.0.29"
+pandas = "^1.4.2"
+toml = "^0.10.2"
+numpy = "1.21.6"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
